@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""GLaDOS 自动签到。从环境变量 GLADOS_COOKIE 读取 Cookie（浏览器 F12 → 复制完整 Cookie 字符串）。"""
+"""GLaDOS 自动签到。
+
+环境变量：
+- GLADOS_COOKIE：浏览器完整 Cookie（含 koa:sess 与 koa:sess.sig）。
+- GLADOS_ORIGIN：API 站点根地址，默认 https://glados.rocks；若 Cookie 在 glados.space 下且签到失败，设为 https://glados.space。
+"""
 
 from __future__ import annotations
 
@@ -12,8 +17,6 @@ from typing import Any
 
 import requests
 
-GET_STATUS_URL = "https://glados.rocks/api/user/status"
-CHECK_IN_URL = "https://glados.rocks/api/user/checkin"
 UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -41,6 +44,13 @@ def resp_json(resp: requests.Response) -> dict[str, Any]:
     return json.loads(resp.text)
 
 
+def glados_origin() -> str:
+    raw = (os.environ.get("GLADOS_ORIGIN") or "").strip()
+    if not raw:
+        raw = "https://glados.rocks"
+    return raw.rstrip("/")
+
+
 def convert_traffic_size(size_bytes: int) -> str:
     if size_bytes <= 0:
         return "0B"
@@ -51,7 +61,7 @@ def convert_traffic_size(size_bytes: int) -> str:
     return f"{s} {names[i]}"
 
 
-def check_in_one(cookie_raw: str) -> int:
+def check_in_one(cookie_raw: str, origin: str) -> int:
     cookie_raw = cookie_raw.strip()
     if not cookie_raw:
         return 0
@@ -59,12 +69,14 @@ def check_in_one(cookie_raw: str) -> int:
     cookies = parse_cookie_string(cookie_raw)
     headers = {
         "User-Agent": UA,
-        "Origin": "https://glados.rocks",
-        "Referer": "https://glados.rocks/console/checkin",
+        "Origin": origin,
+        "Referer": f"{origin}/console/checkin",
     }
+    check_url = f"{origin}/api/user/checkin"
+    status_url = f"{origin}/api/user/status"
 
     r_check = requests.post(
-        CHECK_IN_URL,
+        check_url,
         json={"token": "glados.network"},
         headers=headers,
         cookies=cookies,
@@ -75,7 +87,7 @@ def check_in_one(cookie_raw: str) -> int:
     message = check_data.get("message", str(check_data))
 
     r_status = requests.get(
-        GET_STATUS_URL,
+        status_url,
         headers=headers,
         cookies=cookies,
         timeout=30,
@@ -101,13 +113,16 @@ def main() -> int:
         print("请设置环境变量 GLADOS_COOKIE（完整 Cookie 字符串）。", flush=True)
         return 1
 
+    origin = glados_origin()
+    print(f"使用站点: {origin}", flush=True)
+
     parts = [p.strip() for p in raw.split("&&") if p.strip()]
     exit_code = 0
     for i, ck in enumerate(parts):
         if len(parts) > 1:
             print(f"--- 账号 {i + 1}/{len(parts)} ---", flush=True)
         try:
-            exit_code |= check_in_one(ck)
+            exit_code |= check_in_one(ck, origin)
         except requests.RequestException as e:
             print(f"[请求失败] {e}", flush=True)
             exit_code = 1

@@ -25,7 +25,9 @@ jobs:
       - name: 安装依赖
         run: pip install -r requirements.txt
 
+      # 若浏览器里 Cookie 仅在 glados.space：Settings → Secrets and variables → Actions → Variables 添加 GLADOS_ORIGIN = https://glados.space
       - name: 签到
         env:
           GLADOS_COOKIE: ${{ secrets.GLADOS_COOKIE }}
+          GLADOS_ORIGIN: ${{ vars.GLADOS_ORIGIN }}
         run: python check_in.py
