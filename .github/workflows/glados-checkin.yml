@@ -1,0 +1,31 @@
+name: GLaDOS 签到
+
+on:
+  schedule:
+    # 每日 00:05（UTC+8，新加坡/中国东部）；GitHub cron 为 UTC → 前一日 16:05 UTC
+    - cron: "5 16 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: glados-checkin
+  cancel-in-progress: false
+
+jobs:
+  checkin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: 安装依赖
+        run: pip install -r requirements.txt
+
+      - name: 签到
+        env:
+          GLADOS_COOKIE: ${{ secrets.GLADOS_COOKIE }}
+        run: python check_in.py
