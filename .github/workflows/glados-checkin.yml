@@ -2,7 +2,7 @@ name: GLaDOS 签到
 
 on:
   schedule:
-    # 每日 00:05（UTC+8，新加坡/中国东部）；GitHub cron 为 UTC → 前一日 16:05 UTC
+    # 每日 00:05（UTC+8）；GitHub cron 为 UTC → 前一日 16:05 UTC
     - cron: "5 16 * * *"
   workflow_dispatch:
 
@@ -25,9 +25,13 @@ jobs:
       - name: 安装依赖
         run: pip install -r requirements.txt
 
-      # 若浏览器里 Cookie 仅在 glados.space：Settings → Secrets and variables → Actions → Variables 添加 GLADOS_ORIGIN = https://glados.space
+      # 需要在 Settings → Secrets and variables → Actions 配置：
+      #   Secret  GLADOS_COOKIE：浏览器完整 Cookie（含 gld:sess / gld:sess.sig）
+      #   Secret  GLADOS_UA：取 Cookie 浏览器的 navigator.userAgent（必须与 Cookie 同一浏览器）
+      #   Variable GLADOS_ORIGIN（可选）：站点根地址，如 https://glados.space
       - name: 签到
         env:
           GLADOS_COOKIE: ${{ secrets.GLADOS_COOKIE }}
+          GLADOS_UA: ${{ vars.GLADOS_UA || secrets.GLADOS_UA || vars.GLADOS_USER_AGENT || secrets.GLADOS_USER_AGENT }}
           GLADOS_ORIGIN: ${{ vars.GLADOS_ORIGIN }}
         run: python check_in.py
